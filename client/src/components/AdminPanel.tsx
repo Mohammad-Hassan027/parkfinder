@@ -11,6 +11,7 @@ import {
   X,
   Check,
   AlertCircle,
+  Calendar,
 } from "lucide-react";
 
 interface ParkingSlot {
@@ -33,25 +34,70 @@ interface User {
   createdAt?: string;
 }
 
-type TabType = "parking" | "users";
+interface Booking {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  parkingId: {
+    _id: string;
+    name: string;
+    location: string;
+    pricePerHour: number;
+  };
+  bookingDate: string;
+  duration: number;
+  totalPrice: number;
+  bookingStatus: "active" | "cancelled" | "completed";
+}
+
+type TabType = "parking" | "users" | "bookings";
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<TabType>("parking");
   const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [slotForm, setSlotForm] = useState<Partial<ParkingSlot>>({});
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
-  const [loading, setLoading] = useState({ parking: true, users: true });
+  const [loading, setLoading] = useState({
+    parking: true,
+    users: true,
+    bookings: true,
+  });
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState({ parking: "", users: "" });
+  const [searchTerm, setSearchTerm] = useState({
+    parking: "",
+    users: "",
+    bookings: "",
+  });
   const [showSlotForm, setShowSlotForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{
-    type: "parking" | "user";
+    type: "parking" | "user" | "booking";
     id: string;
     name: string;
   } | null>(null);
 
   const { token } = useAuth();
+
+  // Fetch data based on active tab
+  useEffect(() => {
+    if (!token) return;
+
+    switch (activeTab) {
+      case "parking":
+        fetchParkingSlots();
+        break;
+      case "users":
+        fetchUsers();
+        break;
+      case "bookings":
+        fetchBookings();
+        break;
+    }
+  }, [activeTab, token]);
 
   const fetchParkingSlots = async () => {
     try {
@@ -69,11 +115,10 @@ export default function AdminPanel() {
       if (data.success) {
         setParkingSlots(data.data);
       } else {
-        console.error("Fetch Slots Error:", data.message);
         setError(data.message);
       }
     } catch (error) {
-      console.error("Network Error:", error);
+      console.error(error);
       setError("Network error. Please check your connection.");
     } finally {
       setLoading((prev) => ({ ...prev, parking: false }));
@@ -92,10 +137,8 @@ export default function AdminPanel() {
       });
 
       const data = await res.json();
-      console.log("Users Response:", data);
 
       if (data.success && Array.isArray(data.data)) {
-        // ✅ Validate and clean user data
         const validatedUsers = data.data.map((user: User) => ({
           _id: user._id || "",
           name: user.name || "Unknown",
@@ -103,27 +146,59 @@ export default function AdminPanel() {
           role: user.role || "user",
           createdAt: user.createdAt || "",
         }));
-
         setUsers(validatedUsers);
       } else {
         setError(data.message || "Failed to fetch users");
-        setUsers([]); // ✅ Empty array set करें
+        setUsers([]);
       }
     } catch (err) {
-      console.error("Fetch Users Error:", err);
+      console.error(err);
       setError("Failed to fetch users");
-      setUsers([]); // ✅ Empty array set करें
+      setUsers([]);
     } finally {
       setLoading((prev) => ({ ...prev, users: false }));
     }
   };
 
-  useEffect(() => {
-    if (!token) return;
-    fetchUsers();
-    fetchParkingSlots();
-  }, [token]);
+  const fetchBookings = async () => {
+    try {
+      setLoading((prev) => ({ ...prev, bookings: true }));
+      console.log(
+        "📌 Fetching bookings with token:",
+        token?.substring(0, 20) + "..."
+      );
 
+      const res = await fetch("http://localhost:5000/api/bookings/all", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("📌 Bookings API response status:", res.status);
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("❌ Bookings API error response:", text);
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+
+      const data = await res.json();
+      console.log("📌 Bookings API data:", data);
+
+      if (data.success) {
+        setBookings(data.data);
+      } else {
+        setError(data.message || "Failed to fetch bookings");
+      }
+    } catch (err) {
+      console.error("❌ Error fetching bookings:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch bookings");
+    } finally {
+      setLoading((prev) => ({ ...prev, bookings: false }));
+    }
+  };
   // Handle Slot Operations
   const handleDeleteSlot = async (id: string) => {
     try {
@@ -238,6 +313,68 @@ export default function AdminPanel() {
     }
   };
 
+  // Handle Booking Operations
+  const handleUpdateBookingStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/bookings/${id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      const data = await res.json();
+      if (data.success) {
+        fetchBookings();
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to update booking status");
+    }
+  };
+
+  const handleDeleteBooking = async (id: string) => {
+    try {
+      console.log("📌 Deleting booking:", id);
+
+      const res = await fetch(
+        `http://localhost:5000/api/bookings/admin-delete/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+
+      const data = await res.json();
+
+      if (data.success) {
+        console.log("✅ Booking deleted successfully");
+        fetchBookings();
+        setShowDeleteConfirm(null);
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      console.error("❌ Error deleting booking:", err);
+      setError("Failed to delete booking");
+    }
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
     try {
@@ -245,6 +382,8 @@ export default function AdminPanel() {
         year: "numeric",
         month: "short",
         day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch (error) {
       console.error(error);
@@ -271,6 +410,22 @@ export default function AdminPanel() {
       role.toLowerCase().includes(search)
     );
   });
+
+  const filteredBookings = (bookings || []).filter((booking) => {
+    const userName = booking.userId?.name || "";
+    const userEmail = booking.userId?.email || "";
+    const parkingName = booking.parkingId?.name || "";
+    const status = booking.bookingStatus || "";
+    const search = searchTerm.bookings.toLowerCase();
+
+    return (
+      userName.toLowerCase().includes(search) ||
+      userEmail.toLowerCase().includes(search) ||
+      parkingName.toLowerCase().includes(search) ||
+      status.toLowerCase().includes(search)
+    );
+  });
+
   const getStatusColor = (status?: string): string => {
     switch ((status || "").toLowerCase()) {
       case "available":
@@ -281,6 +436,19 @@ export default function AdminPanel() {
         return "bg-yellow-500 text-black";
       default:
         return "bg-gray-500 text-white";
+    }
+  };
+
+  const getBookingStatusColor = (status?: string): string => {
+    switch ((status || "").toLowerCase()) {
+      case "active":
+        return "bg-green-500/20 text-green-300";
+      case "cancelled":
+        return "bg-red-500/20 text-red-300";
+      case "completed":
+        return "bg-blue-500/20 text-blue-300";
+      default:
+        return "bg-gray-500/20 text-gray-300";
     }
   };
 
@@ -337,14 +505,14 @@ export default function AdminPanel() {
                       Admin Panel
                     </h1>
                     <p className="text-[#EEECF6]/60">
-                      Manage parking slots and users
+                      Manage parking slots, users, and bookings
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="backdrop-blur-xl bg-[#191919]/80 border border-[#EEECF6]/10 rounded-xl p-4">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-3 gap-6">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-white mb-1">
                       {parkingSlots.length}
@@ -358,6 +526,12 @@ export default function AdminPanel() {
                       {users.length}
                     </div>
                     <div className="text-sm text-[#EEECF6]/60">Users</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white mb-1">
+                      {bookings.length}
+                    </div>
+                    <div className="text-sm text-[#EEECF6]/60">Bookings</div>
                   </div>
                 </div>
               </div>
@@ -393,6 +567,20 @@ export default function AdminPanel() {
               <Users className="w-5 h-5" />
               Users
               {loading.users && (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("bookings")}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                activeTab === "bookings"
+                  ? "bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] text-white"
+                  : "text-[#EEECF6]/70 hover:text-[#EEECF6] hover:bg-[#1B42CB]/10"
+              }`}
+            >
+              <Calendar className="w-5 h-5" />
+              Bookings
+              {loading.bookings && (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               )}
             </button>
@@ -449,166 +637,6 @@ export default function AdminPanel() {
                 Add New Slot
               </button>
             </div>
-
-            {/* Slot Form Modal */}
-            {showSlotForm && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="backdrop-blur-xl bg-[#191919]/90 border border-[#1B42CB]/30 rounded-2xl w-full max-w-2xl shadow-2xl shadow-[#1B42CB]/10">
-                  <div className="p-6 border-b border-[#1B42CB]/20">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-bold text-[#EEECF6]">
-                        {editingSlotId
-                          ? "Edit Parking Slot"
-                          : "Add New Parking Slot"}
-                      </h2>
-                      <button
-                        onClick={() => {
-                          setShowSlotForm(false);
-                          setSlotForm({});
-                          setEditingSlotId(null);
-                        }}
-                        className="w-8 h-8 rounded-lg bg-[#191919] border border-[#1B42CB]/30 flex items-center justify-center text-[#EEECF6] hover:bg-[#FF2F6C]/10 hover:border-[#FF2F6C]/30 transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleAddOrUpdateSlot} className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                      <div>
-                        <label className="block text-sm font-medium text-[#EEECF6] mb-2">
-                          Slot Name *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={slotForm.name || ""}
-                          onChange={(e) =>
-                            setSlotForm({ ...slotForm, name: e.target.value })
-                          }
-                          className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
-                          placeholder="Enter slot name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#EEECF6] mb-2">
-                          Location *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={slotForm.location || ""}
-                          onChange={(e) =>
-                            setSlotForm({
-                              ...slotForm,
-                              location: e.target.value,
-                            })
-                          }
-                          className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
-                          placeholder="Enter location"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#EEECF6] mb-2">
-                          Price per Hour (₹) *
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          min="0"
-                          step="0.01"
-                          value={slotForm.pricePerHour || ""}
-                          onChange={(e) =>
-                            setSlotForm({
-                              ...slotForm,
-                              pricePerHour: Number(e.target.value),
-                            })
-                          }
-                          className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
-                          placeholder="Enter price"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#EEECF6] mb-2">
-                          Status
-                        </label>
-                        <select
-                          value={slotForm.status || "available"}
-                          onChange={(e) =>
-                            setSlotForm({ ...slotForm, status: e.target.value })
-                          }
-                          className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
-                        >
-                          <option value="available">Available</option>
-                          <option value="occupied">Occupied</option>
-                          <option value="maintenance">Maintenance</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#EEECF6] mb-2">
-                          Total Capacity *
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          min="1"
-                          value={slotForm.capacity || ""}
-                          onChange={(e) =>
-                            setSlotForm({
-                              ...slotForm,
-                              capacity: Number(e.target.value),
-                            })
-                          }
-                          className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
-                          placeholder="Enter total capacity"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#EEECF6] mb-2">
-                          Available Slots *
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          min="0"
-                          value={slotForm.availableSlots || ""}
-                          onChange={(e) =>
-                            setSlotForm({
-                              ...slotForm,
-                              availableSlots: Number(e.target.value),
-                            })
-                          }
-                          className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
-                          placeholder="Enter available slots"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowSlotForm(false);
-                          setSlotForm({});
-                          setEditingSlotId(null);
-                        }}
-                        className="px-6 py-3 bg-[#191919] border border-[#1B42CB]/30 text-[#EEECF6] font-semibold rounded-xl hover:bg-[#1B42CB]/10 transition-all duration-300"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-6 py-3 bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-[#FF2F6C]/20 transition-all duration-300 flex items-center gap-2"
-                      >
-                        <Check className="w-5 h-5" />
-                        {editingSlotId ? "Update Slot" : "Add Slot"}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
 
             {/* Parking Slots Grid */}
             {loading.parking ? (
@@ -794,7 +822,6 @@ export default function AdminPanel() {
                     </thead>
                     <tbody>
                       {filteredUsers.map((user) => {
-                        // ✅ Safe destructuring with defaults
                         const {
                           _id = "",
                           name = "Unknown",
@@ -868,7 +895,320 @@ export default function AdminPanel() {
             )}
           </div>
         )}
+
+        {/* Bookings Tab */}
+        {activeTab === "bookings" && (
+          <div className="space-y-6">
+            {/* Search */}
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                <Search className="w-5 h-5 text-[#1B42CB]" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search bookings by user name, email, parking name, or status..."
+                value={searchTerm.bookings}
+                onChange={(e) =>
+                  setSearchTerm((prev) => ({
+                    ...prev,
+                    bookings: e.target.value,
+                  }))
+                }
+                className="w-full pl-12 pr-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] placeholder-[#EEECF6]/40 focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+              />
+            </div>
+
+            {/* Bookings Table */}
+            {loading.bookings ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 border-4 border-[#1B42CB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-[#EEECF6]/60">Loading bookings...</p>
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-12 text-center">
+                <Calendar className="w-16 h-16 text-[#1B42CB]/50 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-[#EEECF6] mb-2">
+                  No Bookings Found
+                </h3>
+                <p className="text-[#EEECF6]/60">
+                  {searchTerm.bookings
+                    ? "Try adjusting your search"
+                    : "No bookings have been made yet"}
+                </p>
+              </div>
+            ) : (
+              <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#1B42CB]/20">
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          User
+                        </th>
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          Parking Slot
+                        </th>
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          Date & Time
+                        </th>
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          Duration
+                        </th>
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          Amount
+                        </th>
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          Status
+                        </th>
+                        <th className="text-left py-4 px-6 text-[#EEECF6] font-semibold">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBookings.map((booking) => (
+                        <tr
+                          key={booking._id}
+                          className="border-b border-[#1B42CB]/10 hover:bg-[#1B42CB]/5 transition-colors"
+                        >
+                          <td className="py-4 px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#1B42CB] to-[#FF2F6C] flex items-center justify-center">
+                                <User className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-[#EEECF6]">
+                                  {booking.userId?.name || "Unknown"}
+                                </div>
+                                <div className="text-sm text-[#EEECF6]/60">
+                                  {booking.userId?.email || "No email"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
+                            <div>
+                              <div className="font-medium text-[#EEECF6]">
+                                {booking.parkingId?.name || "Unknown"}
+                              </div>
+                              <div className="text-sm text-[#EEECF6]/60">
+                                {booking.parkingId?.location || "N/A"}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 text-[#EEECF6]/60">
+                            {formatDate(booking.bookingDate)}
+                          </td>
+                          <td className="py-4 px-6 text-[#EEECF6]">
+                            {booking.duration} hour
+                            {booking.duration !== 1 ? "s" : ""}
+                          </td>
+                          <td className="py-4 px-6 text-[#EEECF6] font-medium">
+                            ₹{booking.totalPrice}
+                          </td>
+                          <td className="py-4 px-6">
+                            <select
+                              value={booking.bookingStatus}
+                              onChange={(e) =>
+                                handleUpdateBookingStatus(
+                                  booking._id,
+                                  e.target.value
+                                )
+                              }
+                              className={`px-3 py-1 rounded-lg text-sm font-medium ${getBookingStatusColor(
+                                booking.bookingStatus
+                              )} border-0 focus:ring-2 focus:ring-[#1B42CB]/20 focus:outline-none`}
+                            >
+                              <option value="active">Active</option>
+                              <option value="cancelled">Cancelled</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() =>
+                                  setShowDeleteConfirm({
+                                    type: "booking",
+                                    id: booking._id,
+                                    name: `Booking by ${booking.userId?.name}`,
+                                  })
+                                }
+                                className="px-4 py-2 bg-[#191919] border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Slot Form Modal */}
+      {showSlotForm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="backdrop-blur-xl bg-[#191919]/90 border border-[#1B42CB]/30 rounded-2xl w-full max-w-2xl shadow-2xl shadow-[#1B42CB]/10">
+            <div className="p-6 border-b border-[#1B42CB]/20">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-[#EEECF6]">
+                  {editingSlotId ? "Edit Parking Slot" : "Add New Parking Slot"}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowSlotForm(false);
+                    setSlotForm({});
+                    setEditingSlotId(null);
+                  }}
+                  className="w-8 h-8 rounded-lg bg-[#191919] border border-[#1B42CB]/30 flex items-center justify-center text-[#EEECF6] hover:bg-[#FF2F6C]/10 hover:border-[#FF2F6C]/30 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddOrUpdateSlot} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-[#EEECF6] mb-2">
+                    Slot Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={slotForm.name || ""}
+                    onChange={(e) =>
+                      setSlotForm({ ...slotForm, name: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+                    placeholder="Enter slot name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#EEECF6] mb-2">
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={slotForm.location || ""}
+                    onChange={(e) =>
+                      setSlotForm({
+                        ...slotForm,
+                        location: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+                    placeholder="Enter location"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#EEECF6] mb-2">
+                    Price per Hour (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    value={slotForm.pricePerHour || ""}
+                    onChange={(e) =>
+                      setSlotForm({
+                        ...slotForm,
+                        pricePerHour: Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+                    placeholder="Enter price"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#EEECF6] mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={slotForm.status || "available"}
+                    onChange={(e) =>
+                      setSlotForm({ ...slotForm, status: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+                  >
+                    <option value="available">Available</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#EEECF6] mb-2">
+                    Total Capacity *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={slotForm.capacity || ""}
+                    onChange={(e) =>
+                      setSlotForm({
+                        ...slotForm,
+                        capacity: Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+                    placeholder="Enter total capacity"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#EEECF6] mb-2">
+                    Available Slots *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={slotForm.availableSlots || ""}
+                    onChange={(e) =>
+                      setSlotForm({
+                        ...slotForm,
+                        availableSlots: Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-3 bg-[#191919]/50 border border-[#1B42CB]/30 rounded-xl text-[#EEECF6] focus:outline-none focus:border-[#1B42CB] focus:ring-2 focus:ring-[#1B42CB]/20 transition-all duration-300"
+                    placeholder="Enter available slots"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSlotForm(false);
+                    setSlotForm({});
+                    setEditingSlotId(null);
+                  }}
+                  className="px-6 py-3 bg-[#191919] border border-[#1B42CB]/30 text-[#EEECF6] font-semibold rounded-xl hover:bg-[#1B42CB]/10 transition-all duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-[#FF2F6C]/20 transition-all duration-300 flex items-center gap-2"
+                >
+                  <Check className="w-5 h-5" />
+                  {editingSlotId ? "Update Slot" : "Add Slot"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
@@ -911,14 +1251,20 @@ export default function AdminPanel() {
                   onClick={() => {
                     if (showDeleteConfirm.type === "parking") {
                       handleDeleteSlot(showDeleteConfirm.id);
-                    } else {
+                    } else if (showDeleteConfirm.type === "user") {
                       handleDeleteUser(showDeleteConfirm.id);
+                    } else if (showDeleteConfirm.type === "booking") {
+                      handleDeleteBooking(showDeleteConfirm.id);
                     }
                   }}
                   className="flex-1 px-6 py-3 bg-linear-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300"
                 >
                   Delete{" "}
-                  {showDeleteConfirm.type === "parking" ? "Slot" : "User"}
+                  {showDeleteConfirm.type === "parking"
+                    ? "Slot"
+                    : showDeleteConfirm.type === "user"
+                    ? "User"
+                    : "Booking"}
                 </button>
               </div>
             </div>

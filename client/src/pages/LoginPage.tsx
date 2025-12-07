@@ -52,7 +52,7 @@ export default function LoginPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // Authorization header हटा दें (login के लिए नहीं चाहिए)
+          // Authorization header 
         },
         body: JSON.stringify(form),
       });
@@ -61,7 +61,7 @@ export default function LoginPage() {
 
       if (data.success) {
         login(data.user, data.token);
-        navigate("/admin-panel");
+        navigate("/");
       } else {
         setMsg(data.message || "Login failed. Please check your credentials.");
       }

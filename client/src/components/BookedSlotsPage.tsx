@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
 interface ParkingSlot {
   _id: string;
@@ -14,6 +15,7 @@ interface ParkingSlot {
 
 interface Booking {
   _id: string;
+  userId?: string;
   parkingId: ParkingSlot;
   bookingDate?: string;
   duration?: number;
@@ -27,11 +29,18 @@ const BookedSlotsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  const { token } = useAuth();
 
   useEffect(() => {
     const fetchBookedSlots = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/bookings");
+        const res = await fetch("http://localhost:5000/api/bookings/my-bookings", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
         const data = await res.json();
 
         if (data.success) {
@@ -47,20 +56,30 @@ const BookedSlotsPage: React.FC = () => {
     };
 
     fetchBookedSlots();
-  }, []);
+  }, [token]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this booking?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/delete/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/cancel/${id}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       const data = await res.json();
 
       if (data.success) {
-        setBookedSlots((prev) => prev.filter((b) => b._id !== id));
+        // Update local state
+        setBookedSlots(prev => 
+          prev.map(booking => 
+            booking._id === id 
+              ? { ...booking, bookingStatus: "cancelled" } 
+              : booking
+          )
+        );
         alert("Booking cancelled successfully!");
       } else {
         alert(data.message);

@@ -1,7 +1,7 @@
 import express from "express";
 import parkingApi from "./getData/parkingApi.js";
 import connectDB from "./database/db.js";
-import bookingRouter from "./routes/booking.js";
+import bookingRouter from "./routes/bookingRoute.js";
 import getbookingdata from "./getData/booking.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminSlotsRouter from "./routes/slotManage.js";
@@ -30,21 +30,16 @@ app.use(express.urlencoded({ extended: true }));
 
 // Connect to Database
 connectDB();
-
-// Use Booking Routes
-app.use("/api", bookingRouter);
-
+// use auth route.
+app.use("/api/auth", authRoutes);
 // get/Use Booking APi data
 app.use("/api", getbookingdata);
 // get/Use Parking API routes
 app.use("/api", parkingApi);
-
-// use auth route.
-app.use("/api/auth", authRoutes);
-
+// Use Booking Routes
+app.use("/api/bookings", bookingRouter);
 // Use slot management route.
 app.use("/api/admin/slots", adminSlotsRouter);
-
 // use user management route.
 app.use("/api/admin/users", userManage);
 

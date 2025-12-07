@@ -165,7 +165,7 @@ export default function SignupPage() {
             "Admin account created successfully! Redirecting to admin login..."
           );
           setTimeout(() => {
-            navigate("/admin-panel");
+            navigate("/");
           }, 2000);
         } else {
           setMsg("Account created successfully! Redirecting to login...");
