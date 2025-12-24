@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface ParkingSlot {
   _id: string;
@@ -29,18 +31,25 @@ const BookedSlotsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  
-  const { token } = useAuth();
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const { token, user } = useAuth();
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchBookedSlots = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/bookings/my-bookings", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/bookings/my-bookings`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
         const data = await res.json();
 
         if (data.success) {
@@ -62,21 +71,23 @@ const BookedSlotsPage: React.FC = () => {
     if (!confirm("Are you sure you want to cancel this booking?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/bookings/cancel/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/bookings/cancel/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await res.json();
 
       if (data.success) {
-        // Update local state
-        setBookedSlots(prev => 
-          prev.map(booking => 
-            booking._id === id 
-              ? { ...booking, bookingStatus: "cancelled" } 
+        setBookedSlots((prev) =>
+          prev.map((booking) =>
+            booking._id === id
+              ? { ...booking, bookingStatus: "cancelled" }
               : booking
           )
         );
@@ -87,6 +98,114 @@ const BookedSlotsPage: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert("Failed to cancel booking. Please try again.");
+    }
+  };
+
+  const handleDownloadReceipt = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowReceiptModal(true);
+  };
+
+  const generateReceipt = async () => {
+    if (!selectedBooking) return;
+
+    setDownloading(true);
+    try {
+      // Create a simple receipt structure without problematic classes
+      const receiptHTML = `
+      <div style="background: #0f0f0f; color: white; padding: 20px; font-family: Arial, sans-serif; max-width: 800px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1B42CB; font-size: 28px; margin: 10px 0;">PARKING RECEIPT</h1>
+          <p style="color: #888;">Official Booking Confirmation</p>
+        </div>
+        
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+          <h2 style="color: #1B42CB; margin-top: 0;">Booking Details</h2>
+          <p><strong>Receipt ID:</strong> ${selectedBooking._id}</p>
+          <p><strong>Date:</strong> ${formatDateForReceipt(
+            selectedBooking.bookingDate
+          )}</p>
+          <p><strong>Status:</strong> ${getStatusText(
+            selectedBooking.bookingStatus || ""
+          )}</p>
+        </div>
+        
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+          <h2 style="color: #1B42CB; margin-top: 0;">Parking Information</h2>
+          <p><strong>Location:</strong> ${
+            selectedBooking.parkingId?.name || "N/A"
+          }</p>
+          <p><strong>Address:</strong> ${
+            selectedBooking.parkingId?.location || "N/A"
+          }</p>
+          <p><strong>Duration:</strong> ${
+            selectedBooking.duration || 1
+          } hours</p>
+          <p><strong>Rate:</strong> ₹${
+            selectedBooking.parkingId?.pricePerHour || 0
+          }/hour</p>
+        </div>
+        
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 10px;">
+          <h2 style="color: #1B42CB; margin-top: 0;">Payment Summary</h2>
+          <p><strong>Subtotal:</strong> ₹${
+            (selectedBooking.parkingId?.pricePerHour || 0) *
+            (selectedBooking.duration || 1)
+          }</p>
+          <p style="font-size: 24px; color: #FF2F6C;"><strong>Total:</strong> ₹${
+            selectedBooking.totalPrice ||
+            selectedBooking.parkingId?.pricePerHour ||
+            0
+          }</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; color: #888; font-size: 12px;">
+          <p>Thank you for choosing our service!</p>
+        </div>
+      </div>
+    `;
+
+      // Create a temporary div for rendering
+      const tempDiv = document.createElement("div");
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.innerHTML = receiptHTML;
+      document.body.appendChild(tempDiv);
+
+      const receiptElement = tempDiv.firstElementChild as HTMLElement;
+      if (!receiptElement) {
+        throw new Error("Failed to create receipt element");
+      }
+
+      const canvas = await html2canvas(receiptElement, {
+        scale: 2,
+        backgroundColor: "white",
+        useCORS: true,
+      });
+
+      // Remove temporary div
+      document.body.removeChild(tempDiv);
+
+      // Rest of the code remains same...
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const imgWidth = 160;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+      pdf.save(`Receipt_${selectedBooking._id.substring(0, 8)}.pdf`);
+
+      setShowReceiptModal(false);
+    } catch (error) {
+      console.error("Error generating receipt:", error);
+      alert("Failed to generate receipt. Please try again.");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -138,13 +257,23 @@ const BookedSlotsPage: React.FC = () => {
     });
   };
 
+  const formatDateForReceipt = (dateString?: string): string => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   const filteredBookings = bookedSlots.filter((booking) => {
-    // Apply status filter
     if (filter !== "all" && booking.bookingStatus !== filter) {
       return false;
     }
 
-    // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       return (
@@ -157,6 +286,7 @@ const BookedSlotsPage: React.FC = () => {
     return true;
   });
 
+  // Loading and Error states remain same...
   if (loading) {
     return (
       <div className="min-h-screen bg-linear-to-br from-[#191919] via-[#0f0f0f] to-[#191919] flex items-center justify-center p-4">
@@ -207,6 +337,296 @@ const BookedSlotsPage: React.FC = () => {
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#1B42CB]/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FF2F6C]/10 rounded-full blur-3xl"></div>
       </div>
+
+      {/* Receipt Modal */}
+      {showReceiptModal && selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="relative w-full max-w-4xl">
+            <div className="backdrop-blur-xl bg-linear-to-br from-[#191919] via-[#0f0f0f] to-[#191919] border border-[#1B42CB]/30 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="px-6 py-4 bg-linear-to-r from-[#1B42CB]/20 to-[#FF2F6C]/20 border-b border-[#1B42CB]/30">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold bg-linear-to-r from-[#EEECF6] to-[#1B42CB] bg-clip-text text-transparent">
+                    Booking Receipt
+                  </h2>
+                  <button
+                    onClick={() => setShowReceiptModal(false)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <svg
+                      className="w-6 h-6 text-[#EEECF6]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Receipt Content */}
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                <div
+                  ref={receiptRef}
+                  className="bg-[#0f0f0f] border border-[#1B42CB]/30 rounded-xl p-8"
+                >
+                  {/* Receipt Header */}
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center gap-3 mb-4">
+                      <div className="w-14 h-14 rounded-xl bg-linear-to-br from-[#1B42CB] to-[#FF2F6C] flex items-center justify-center">
+                        <span className="text-2xl">🚗</span>
+                      </div>
+                      <h1 className="text-3xl font-bold bg-linear-to-r from-[#EEECF6] to-[#1B42CB] bg-clip-text text-transparent">
+                        PARK<span className="text-[#FF2F6C]">ING</span> RECEIPT
+                      </h1>
+                    </div>
+                    <p className="text-[#EEECF6]/60">
+                      Official Booking Confirmation
+                    </p>
+                  </div>
+
+                  {/* Receipt Details */}
+                  <div className="space-y-6">
+                    {/* Booking Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div className="space-y-2">
+                        <div className="text-sm text-[#EEECF6]/60">
+                          Receipt Number
+                        </div>
+                        <div className="text-xl font-mono font-bold text-[#EEECF6]">
+                          {selectedBooking._id}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm text-[#EEECF6]/60">
+                          Booking Date
+                        </div>
+                        <div className="text-lg font-semibold text-[#EEECF6]">
+                          {formatDateForReceipt(selectedBooking.bookingDate)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* User Info */}
+                    <div className="bg-[#191919]/50 border border-[#1B42CB]/10 rounded-xl p-4 mb-6">
+                      <h3 className="text-lg font-bold text-[#EEECF6] mb-4">
+                        Customer Information
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-sm text-[#EEECF6]/60 mb-1">
+                            Name
+                          </div>
+                          <div className="text-[#EEECF6]">
+                            {user?.name || "N/A"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-[#EEECF6]/60 mb-1">
+                            Email
+                          </div>
+                          <div className="text-[#EEECF6]">
+                            {user?.email || "N/A"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Parking Details */}
+                    <div className="bg-[#191919]/50 border border-[#1B42CB]/10 rounded-xl p-6 mb-6">
+                      <h3 className="text-lg font-bold text-[#EEECF6] mb-4">
+                        Parking Details
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-2xl font-bold text-[#EEECF6] mb-1">
+                            {selectedBooking.parkingId?.name ||
+                              "Unknown Parking"}
+                          </div>
+                          <div className="text-[#EEECF6]/60 flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            {selectedBooking.parkingId?.location ||
+                              "Location not specified"}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="text-center">
+                            <div className="text-sm text-[#EEECF6]/60 mb-1">
+                              Duration
+                            </div>
+                            <div className="text-xl font-bold text-[#EEECF6]">
+                              {selectedBooking.duration || 1} hr
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-[#EEECF6]/60 mb-1">
+                              Rate/Hour
+                            </div>
+                            <div className="text-xl font-bold text-[#1B42CB]">
+                              ₹{selectedBooking.parkingId?.pricePerHour || 0}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-[#EEECF6]/60 mb-1">
+                              Start Time
+                            </div>
+                            <div className="text-lg font-semibold text-[#EEECF6]">
+                              {selectedBooking.bookingDate
+                                ? new Date(
+                                    selectedBooking.bookingDate
+                                  ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "N/A"}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-[#EEECF6]/60 mb-1">
+                              End Time
+                            </div>
+                            <div className="text-lg font-semibold text-[#EEECF6]">
+                              {calculateEndTime(
+                                selectedBooking.bookingDate,
+                                selectedBooking.duration
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Summary */}
+                    <div className="bg-[#191919]/50 border border-[#1B42CB]/10 rounded-xl p-6">
+                      <h3 className="text-lg font-bold text-[#EEECF6] mb-4">
+                        Payment Summary
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center py-2 border-b border-[#1B42CB]/20">
+                          <div className="text-[#EEECF6]/60">Hourly Rate</div>
+                          <div className="text-[#EEECF6]">
+                            ₹{selectedBooking.parkingId?.pricePerHour || 0} ×{" "}
+                            {selectedBooking.duration || 1} hours
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-[#1B42CB]/20">
+                          <div className="text-[#EEECF6]/60">Subtotal</div>
+                          <div className="text-[#EEECF6]">
+                            ₹
+                            {(selectedBooking.parkingId?.pricePerHour || 0) *
+                              (selectedBooking.duration || 1)}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                          <div className="text-lg font-bold text-[#EEECF6]">
+                            Total Amount
+                          </div>
+                          <div className="text-2xl font-bold bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] bg-clip-text text-transparent">
+                            ₹
+                            {selectedBooking.totalPrice ||
+                              selectedBooking.parkingId?.pricePerHour ||
+                              0}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status and Footer */}
+                    <div className="mt-8 pt-6 border-t border-[#1B42CB]/20">
+                      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`px-4 py-2 rounded-lg ${getStatusColor(
+                              selectedBooking.bookingStatus || ""
+                            )}`}
+                          >
+                            <span className="font-bold">
+                              Status:{" "}
+                              {getStatusText(
+                                selectedBooking.bookingStatus || ""
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-center text-[#EEECF6]/60 text-sm">
+                          <p>Thank you for choosing our parking service!</p>
+                          <p>For any queries, contact support@parking.com</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer with Download Button */}
+              <div className="px-6 py-4 bg-[#191919]/80 border-t border-[#1B42CB]/20">
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowReceiptModal(false)}
+                    className="px-6 py-3 bg-[#191919] border border-[#1B42CB]/30 text-[#EEECF6] font-semibold rounded-xl hover:bg-[#1B42CB]/10 transition-all duration-300"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={generateReceipt}
+                    disabled={downloading}
+                    className="px-6 py-3 bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-[#FF2F6C]/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {downloading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                        Download Receipt (PDF + Image)
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
@@ -494,13 +914,25 @@ const BookedSlotsPage: React.FC = () => {
                             Quick Actions
                           </div>
                           <div className="space-y-2">
+                            {/* यहां बदलाव किया गया है - Extend Booking की जगह Download Receipt */}
                             <button
-                              className="w-full px-4 py-2 bg-[#191919] border border-[#1B42CB]/30 text-[#EEECF6] rounded-lg hover:bg-[#1B42CB]/10 transition-colors text-sm"
-                              onClick={() =>
-                                alert("Extend booking feature coming soon!")
-                              }
+                              className="w-full px-4 py-2 bg-[#191919] border border-[#1B42CB]/30 text-[#EEECF6] rounded-lg hover:bg-[#1B42CB]/10 transition-colors text-sm flex items-center justify-center gap-2"
+                              onClick={() => handleDownloadReceipt(booking)}
                             >
-                              Extend Booking
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                />
+                              </svg>
+                              Download Receipt
                             </button>
                             <button
                               className="w-full px-4 py-2 bg-[#191919] border border-[#1B42CB]/30 text-[#EEECF6] rounded-lg hover:bg-[#1B42CB]/10 transition-colors text-sm"

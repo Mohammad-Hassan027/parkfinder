@@ -13,7 +13,6 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -23,7 +22,6 @@ app.use(
     exposedHeaders: ["Authorization"],
   })
 );
-
 // Middleware to parse JSON body (if needed later)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -35,7 +33,7 @@ app.use("/api/auth", authRoutes);
 // get/Use Booking APi data
 app.use("/api", getbookingdata);
 // get/Use Parking API routes
-app.use("/api", parkingApi);
+app.use("/api/parking", parkingApi);
 // Use Booking Routes
 app.use("/api/bookings", bookingRouter);
 // Use slot management route.

@@ -57,7 +57,7 @@ const ParkingSlotPage: React.FC = () => {
   // Function to fetch parking slots
   const fetchParkingSlots = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/parking");
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/parking`);
       const result: ApiResponse = await response.json();
       if (result.success) {
         // Add mock coordinates to slots
@@ -158,7 +158,7 @@ const ParkingSlotPage: React.FC = () => {
       // Calculate total price
       const totalPrice = selectedSlot.pricePerHour * duration;
 
-      const res = await fetch("http://localhost:5000/api/bookings/book", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/book`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
