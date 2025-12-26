@@ -238,30 +238,6 @@ const HomePage: React.FC = () => {
                   </span>
                 </Link>
               </div>
-
-              {/* Trust Badges */}
-              <div className="flex flex-wrap items-center gap-8 pt-8 border-t border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-linear-to-br from-[#00FF88]/20 to-[#00FF88]/10 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">🔒</span>
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">Secure Booking</div>
-                    <div className="text-sm text-gray-400">
-                      Encrypted Payments
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-linear-to-br from-[#FF2F6C]/20 to-[#FF2F6C]/10 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">⚡</span>
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">Instant Entry</div>
-                    <div className="text-sm text-gray-400">QR Code Access</div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Right Side - Premium Parking Card */}
@@ -427,6 +403,65 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
+          {/* Live map section */}
+          <div className="backdrop-blur-xl bg-[#191919]/40 border border-[#1B42CB]/20 rounded-3xl p-8 md:p-12 mt-16">
+            <div className="flex flex-col lg:flex-row items-center gap-8">
+              <div className="flex-1">
+                <h3 className="text-2xl md:text-3xl font-bold text-[#EEECF6] mb-4">
+                  How It Works
+                </h3>
+                <div className="space-y-6">
+                  {[
+                    {
+                      step: "1",
+                      title: "Search & Filter",
+                      desc: "Find parking spots by location, price, and availability",
+                    },
+                    {
+                      step: "2",
+                      title: "Book Instantly",
+                      desc: "Reserve your spot with one click, no waiting required",
+                    },
+                    {
+                      step: "3",
+                      title: "Navigate & Park",
+                      desc: "Get directions and park in your reserved spot",
+                    },
+                    {
+                      step: "4",
+                      title: "Pay Securely",
+                      desc: "Automatic payment with multiple secure options",
+                    },
+                  ].map((item) => (
+                    <div key={item.step} className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] flex items-center justify-center shrink-0">
+                        <span className="font-bold text-white">
+                          {item.step}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-bold text-[#EEECF6] mb-1">
+                          {item.title}
+                        </div>
+                        <div className="text-[#EEECF6]/70">{item.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Live Map */}
+              <div>
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    {error}
+                  </div>
+                )}
+
+                <MapComponent parkingSlots={parkingSlots} loading={loading} />
+              </div>
+            </div>
+          </div>
+
           {/* Bottom Indicators */}
           <div className="mt-16 flex flex-wrap justify-center gap-8">
             <div className="text-center">
@@ -496,67 +531,30 @@ const HomePage: React.FC = () => {
               </div>
             ))}
           </div>
-
-          <div className="backdrop-blur-xl bg-[#191919]/40 border border-[#1B42CB]/20 rounded-3xl p-8 md:p-12">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
-              <div className="flex-1">
-                <h3 className="text-2xl md:text-3xl font-bold text-[#EEECF6] mb-4">
-                  How It Works
-                </h3>
-                <div className="space-y-6">
-                  {[
-                    {
-                      step: "1",
-                      title: "Search & Filter",
-                      desc: "Find parking spots by location, price, and availability",
-                    },
-                    {
-                      step: "2",
-                      title: "Book Instantly",
-                      desc: "Reserve your spot with one click, no waiting required",
-                    },
-                    {
-                      step: "3",
-                      title: "Navigate & Park",
-                      desc: "Get directions and park in your reserved spot",
-                    },
-                    {
-                      step: "4",
-                      title: "Pay Securely",
-                      desc: "Automatic payment with multiple secure options",
-                    },
-                  ].map((item) => (
-                    <div key={item.step} className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] flex items-center justify-center shrink-0">
-                        <span className="font-bold text-white">
-                          {item.step}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-bold text-[#EEECF6] mb-1">
-                          {item.title}
-                        </div>
-                        <div className="text-[#EEECF6]/70">{item.desc}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Live Map */}
-              <div>
-                {error && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    {error}
-                  </div>
-                )}
-
-                <MapComponent parkingSlots={parkingSlots} loading={loading} />
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
+      {/* Trust Badges */}
+      <div className="flex flex-wrap items-center gap-8 pt-8 border-t border-white/10 justify-center max-w-7xl mx-auto px-4 py-12">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-linear-to-br from-[#00FF88]/20 to-[#00FF88]/10 rounded-lg flex items-center justify-center">
+            <span className="text-xl">🔒</span>
+          </div>
+          <div>
+            <div className="text-white font-medium">Secure Booking</div>
+            <div className="text-sm text-gray-400">Encrypted Payments</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-linear-to-br from-[#FF2F6C]/20 to-[#FF2F6C]/10 rounded-lg flex items-center justify-center">
+            <span className="text-xl">⚡</span>
+          </div>
+          <div>
+            <div className="text-white font-medium">Instant Entry</div>
+            <div className="text-sm text-gray-400">QR Code Access</div>
+          </div>
+        </div>
+      </div>
       {/* Testimonials Section */}
       <section className="home-section min-h-screen flex items-center relative px-4 py-20">
         <div className="max-w-7xl mx-auto">
