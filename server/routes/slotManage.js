@@ -1,6 +1,6 @@
 // server/routes/adminSlots.js
 import express from "express";
-import Parking from "../models/Parking.js"; // ya Parking.js
+import Parking from "../models/Parking.js";
 import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
