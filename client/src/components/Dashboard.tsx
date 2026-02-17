@@ -15,6 +15,7 @@ import {
   Filler,
 } from "chart.js";
 import { Pie, Bar, Line } from "react-chartjs-2";
+import * as Icons from "lucide-react";
 
 // Register ChartJS components
 ChartJS.register(
@@ -77,8 +78,23 @@ const DashboardPage: React.FC = () => {
   const [timeframe, setTimeframe] = useState<"week" | "month" | "year">(
     "month",
   );
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const { token } = useAuth();
   const API = import.meta.env.VITE_API_URL;
+
+  // Detect system theme
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    setTheme(mediaQuery.matches ? 'light' : 'dark');
+
+    const handler = (e: MediaQueryListEvent) => {
+      setTheme(e.matches ? 'light' : 'dark');
+    };
+    
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
   useEffect(() => {
     fetchDashboardData();
   }, [timeframe]);
@@ -111,50 +127,83 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-[#191919] via-[#0f0f0f] to-[#191919] flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-20 h-20 rounded-full bg-[#191919]"></div>
-            </div>
-          </div>
-          <p className="mt-6 text-[#EEECF6] text-lg font-semibold">
-            Loading your dashboard...
-          </p>
-          <p className="text-[#EEECF6]/60 mt-2">Analyzing your parking data</p>
-        </div>
-      </div>
-    );
-  }
+  // Theme-based classes
+  const getThemeClasses = () => {
+    return theme === 'light' 
+      ? {
+          bg: 'bg-gray-50',
+          text: 'text-gray-900',
+          textSecondary: 'text-gray-600',
+          textMuted: 'text-gray-500',
+          border: 'border-gray-200',
+          cardBg: 'bg-white',
+          cardBgSecondary: 'bg-gray-50',
+          cardBorder: 'border-gray-200',
+          overlay: 'bg-black/5',
+          chartGrid: 'rgba(0, 0, 0, 0.1)',
+          chartText: '#4B5563',
+          gradient: {
+            primary: 'from-blue-600 to-blue-500',
+            secondary: 'from-pink-600 to-pink-500',
+            accent: 'from-blue-600 to-pink-600'
+          }
+        }
+      : {
+          bg: 'bg-[#191919]',
+          text: 'text-[#EEECF6]',
+          textSecondary: 'text-[#EEECF6]/70',
+          textMuted: 'text-[#EEECF6]/40',
+          border: 'border-[#1B42CB]/20',
+          cardBg: 'bg-[#191919]/60',
+          cardBgSecondary: 'bg-[#191919]/80',
+          cardBorder: 'border-[#1B42CB]/20',
+          overlay: 'bg-black/40',
+          chartGrid: 'rgba(238, 236, 246, 0.1)',
+          chartText: '#EEECF6',
+          gradient: {
+            primary: 'from-[#1B42CB] to-[#1B42CB]/80',
+            secondary: 'from-[#FF2F6C] to-[#FF2F6C]/80',
+            accent: 'from-[#1B42CB] to-[#FF2F6C]'
+          }
+        };
+  };
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-[#191919] via-[#0f0f0f] to-[#191919] flex items-center justify-center p-4">
-        <div className="backdrop-blur-xl bg-[#1B42CB]/10 border border-[#1B42CB]/30 rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-[#1B42CB]/10">
-          <div className="text-center">
-            <div className="w-20 h-20 bg-linear-to-br from-[#FF2F6C]/20 to-[#1B42CB]/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#FF2F6C]/30">
-              <span className="text-3xl">⚠️</span>
-            </div>
-            <h2 className="text-2xl font-bold text-[#EEECF6] mb-3">
-              Dashboard Error
-            </h2>
-            <p className="text-[#EEECF6]/70 mb-6">{error}</p>
-            <button
-              onClick={() => fetchDashboardData()}
-              className="px-6 py-3 bg-linear-to-r from-[#1B42CB] to-[#1B42CB]/80 text-white font-semibold rounded-xl hover:from-[#1B42CB]/90 hover:to-[#1B42CB]/70 transition-all duration-300 hover:shadow-lg hover:shadow-[#1B42CB]/20"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const themeClasses = getThemeClasses();
 
-  // Chart configurations
+  // Chart configurations with theme support
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: {
+          color: themeClasses.chartText,
+          font: {
+            size: 12,
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        grid: {
+          color: themeClasses.chartGrid,
+        },
+        ticks: {
+          color: themeClasses.chartText,
+        },
+      },
+      x: {
+        grid: {
+          color: themeClasses.chartGrid,
+        },
+        ticks: {
+          color: themeClasses.chartText,
+        },
+      },
+    },
+  };
+
   const pieChartData = {
     labels: ["Active", "Completed", "Cancelled"],
     datasets: [
@@ -227,41 +276,51 @@ const DashboardPage: React.FC = () => {
     ],
   };
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        labels: {
-          color: "#EEECF6",
-          font: {
-            size: 12,
-          },
-        },
-      },
-    },
-    scales: {
-      y: {
-        grid: {
-          color: "rgba(238, 236, 246, 0.1)",
-        },
-        ticks: {
-          color: "#EEECF6",
-        },
-      },
-      x: {
-        grid: {
-          color: "rgba(238, 236, 246, 0.1)",
-        },
-        ticks: {
-          color: "#EEECF6",
-        },
-      },
-    },
-  };
+  if (loading) {
+    return (
+      <div className={`min-h-screen ${themeClasses.bg} flex items-center justify-center p-4 transition-colors duration-300`}>
+        <div className="text-center">
+          <div className="relative">
+            <div className={`w-24 h-24 rounded-full bg-gradient-to-r ${themeClasses.gradient.accent} animate-spin`}></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className={`w-20 h-20 rounded-full ${theme === 'light' ? 'bg-white' : 'bg-[#191919]'}`}></div>
+            </div>
+          </div>
+          <p className={`mt-6 ${themeClasses.text} text-lg font-semibold`}>
+            Loading your dashboard...
+          </p>
+          <p className={themeClasses.textSecondary}>Analyzing your parking data</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`min-h-screen ${themeClasses.bg} flex items-center justify-center p-4 transition-colors duration-300`}>
+        <div className={`backdrop-blur-xl ${themeClasses.cardBgSecondary} border ${themeClasses.border} rounded-3xl p-8 max-w-md w-full shadow-2xl`}>
+          <div className="text-center">
+            <div className={`w-20 h-20 bg-gradient-to-br from-[#FF2F6C]/20 to-[#1B42CB]/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#FF2F6C]/30`}>
+              <Icons.AlertTriangle className="w-8 h-8 text-[#FF2F6C]" />
+            </div>
+            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-3`}>
+              Dashboard Error
+            </h2>
+            <p className={themeClasses.textSecondary}>{error}</p>
+            <button
+              onClick={() => fetchDashboardData()}
+              className={`mt-6 px-6 py-3 bg-gradient-to-r from-[#1B42CB] to-[#1B42CB]/80 text-white font-semibold rounded-xl hover:from-[#1B42CB]/90 hover:to-[#1B42CB]/70 transition-all duration-300 hover:shadow-lg hover:shadow-[#1B42CB]/20`}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#191919] via-[#0f0f0f] to-[#191919] p-4 md:p-6">
+    <div className={`min-h-screen ${themeClasses.bg} p-4 md:p-6 transition-colors duration-300`}>
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#1B42CB]/10 rounded-full blur-3xl"></div>
@@ -271,18 +330,18 @@ const DashboardPage: React.FC = () => {
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
         <header className="mb-8">
-          <div className="backdrop-blur-xl bg-[#1B42CB]/10 border border-[#1B42CB]/20 rounded-2xl p-6 md:p-8 shadow-2xl shadow-[#1B42CB]/10">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBgSecondary} border ${themeClasses.border} rounded-2xl p-6 md:p-8 shadow-2xl`}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div>
                 <div className="flex items-center gap-4 mb-3">
-                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-[#1B42CB] to-[#FF2F6C] flex items-center justify-center">
-                    <span className="text-xl">📊</span>
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${themeClasses.gradient.accent} flex items-center justify-center`}>
+                    <Icons.BarChart3 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-3xl md:text-4xl font-bold bg-linear-to-r from-[#EEECF6] to-[#1B42CB] bg-clip-text text-transparent">
+                    <h1 className={`text-3xl md:text-4xl font-bold bg-gradient-to-r from-[${theme === 'light' ? '#1B42CB' : '#EEECF6'}] to-[#1B42CB] bg-clip-text text-transparent`}>
                       Analytics Dashboard
                     </h1>
-                    <p className="text-[#EEECF6]/60">
+                    <p className={themeClasses.textSecondary}>
                       Track your parking habits and spending
                     </p>
                   </div>
@@ -290,17 +349,20 @@ const DashboardPage: React.FC = () => {
               </div>
 
               {/* Time Filter */}
-              <div className="flex gap-2 bg-[#191919]/80 border border-[#1B42CB]/30 rounded-xl p-1">
+              <div className={`flex gap-2 ${themeClasses.cardBgSecondary} border ${themeClasses.border} rounded-xl p-1`}>
                 {["week", "month", "year"].map((period) => (
                   <button
                     key={period}
                     onClick={() => setTimeframe(period as any)}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 flex items-center gap-2 ${
                       timeframe === period
-                        ? "bg-linear-to-r from-[#1B42CB] to-[#FF2F6C] text-white"
-                        : "text-[#EEECF6]/60 hover:text-[#EEECF6] hover:bg-white/5"
+                        ? `bg-gradient-to-r ${themeClasses.gradient.accent} text-white`
+                        : `${themeClasses.textSecondary} hover:${themeClasses.text} hover:bg-white/5`
                     }`}
                   >
+                    {period === 'week' && <Icons.CalendarDays className="w-4 h-4" />}
+                    {period === 'month' && <Icons.Calendar className="w-4 h-4" />}
+                    {period === 'year' && <Icons.CalendarRange className="w-4 h-4" />}
                     {period.charAt(0).toUpperCase() + period.slice(1)}
                   </button>
                 ))}
@@ -311,60 +373,60 @@ const DashboardPage: React.FC = () => {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300`}>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-[#1B42CB]/20 flex items-center justify-center">
-                <span className="text-2xl">📅</span>
+                <Icons.CalendarCheck className="w-6 h-6 text-[#1B42CB]" />
               </div>
-              <span className="text-3xl font-bold text-[#EEECF6]">
+              <span className={`text-3xl font-bold ${themeClasses.text}`}>
                 {stats?.totalBookings || 0}
               </span>
             </div>
-            <h3 className="text-[#EEECF6]/60 text-sm">Total Bookings</h3>
+            <h3 className={themeClasses.textSecondary}>Total Bookings</h3>
           </div>
 
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300`}>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-                <span className="text-2xl">✅</span>
+                <Icons.CheckCircle className="w-6 h-6 text-green-500" />
               </div>
-              <span className="text-3xl font-bold text-[#EEECF6]">
+              <span className={`text-3xl font-bold ${themeClasses.text}`}>
                 {stats?.completedBookings || 0}
               </span>
             </div>
-            <h3 className="text-[#EEECF6]/60 text-sm">Completed</h3>
+            <h3 className={themeClasses.textSecondary}>Completed</h3>
           </div>
 
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300`}>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-[#FF2F6C]/20 flex items-center justify-center">
-                <span className="text-2xl">💰</span>
+                <Icons.IndianRupee className="w-6 h-6 text-[#FF2F6C]" />
               </div>
-              <span className="text-3xl font-bold text-[#EEECF6]">
+              <span className={`text-3xl font-bold ${themeClasses.text}`}>
                 ₹{stats?.totalSpent || 0}
               </span>
             </div>
-            <h3 className="text-[#EEECF6]/60 text-sm">Total Spent</h3>
+            <h3 className={themeClasses.textSecondary}>Total Spent</h3>
           </div>
 
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-[#1B42CB]/10 transition-all duration-300`}>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <span className="text-2xl">⏰</span>
+                <Icons.Clock className="w-6 h-6 text-purple-500" />
               </div>
-              <span className="text-3xl font-bold text-[#EEECF6]">
+              <span className={`text-3xl font-bold ${themeClasses.text}`}>
                 {stats?.totalParkingHours || 0}h
               </span>
             </div>
-            <h3 className="text-[#EEECF6]/60 text-sm">Total Hours</h3>
+            <h3 className={themeClasses.textSecondary}>Total Hours</h3>
           </div>
         </div>
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Booking Status Distribution */}
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-[#EEECF6] mb-6">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl`}>
+            <h3 className={`text-xl font-bold ${themeClasses.text} mb-6`}>
               Booking Status Distribution
             </h3>
             <div className="h-64">
@@ -373,19 +435,19 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Favorite Parking */}
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-[#EEECF6] mb-6">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl`}>
+            <h3 className={`text-xl font-bold ${themeClasses.text} mb-6`}>
               Favorite Parking Location
             </h3>
             {stats?.favoriteParking ? (
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-xl bg-linear-to-br from-[#1B42CB] to-[#FF2F6C] flex items-center justify-center">
-                  <span className="text-3xl">🏆</span>
+                <div className={`w-24 h-24 mx-auto mb-4 rounded-xl bg-gradient-to-br ${themeClasses.gradient.accent} flex items-center justify-center`}>
+                  <Icons.Trophy className="w-8 h-8 text-white" />
                 </div>
-                <h4 className="text-2xl font-bold text-[#EEECF6] mb-2">
+                <h4 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>
                   {stats.favoriteParking.name}
                 </h4>
-                <p className="text-[#EEECF6]/60">
+                <p className={themeClasses.textSecondary}>
                   Booked {stats.favoriteParking.count} times
                 </p>
               </div>
@@ -397,8 +459,8 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Booking Trends */}
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl lg:col-span-2">
-            <h3 className="text-xl font-bold text-[#EEECF6] mb-6">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl lg:col-span-2`}>
+            <h3 className={`text-xl font-bold ${themeClasses.text} mb-6`}>
               Booking & Spending Trends
             </h3>
             <div className="h-80">
@@ -407,8 +469,8 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Hourly Distribution */}
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-[#EEECF6] mb-6">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl`}>
+            <h3 className={`text-xl font-bold ${themeClasses.text} mb-6`}>
               Peak Booking Hours
             </h3>
             <div className="h-64">
@@ -417,8 +479,8 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Duration Analysis */}
-          <div className="backdrop-blur-xl bg-[#191919]/60 border border-[#1B42CB]/20 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-[#EEECF6] mb-6">
+          <div className={`backdrop-blur-xl ${themeClasses.cardBg} border ${themeClasses.border} rounded-2xl p-6 shadow-xl`}>
+            <h3 className={`text-xl font-bold ${themeClasses.text} mb-6`}>
               Parking Duration Analysis
             </h3>
             <div className="h-64">
@@ -429,48 +491,48 @@ const DashboardPage: React.FC = () => {
 
         {/* Additional Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="backdrop-blur-xl bg-linear-to-br from-[#1B42CB]/10 to-transparent border border-[#1B42CB]/20 rounded-2xl p-6">
+          <div className={`backdrop-blur-xl bg-gradient-to-br from-[#1B42CB]/10 to-transparent border ${themeClasses.border} rounded-2xl p-6`}>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-10 h-10 rounded-lg bg-[#1B42CB]/20 flex items-center justify-center">
-                <span className="text-lg">📊</span>
+                <Icons.TrendingUp className="w-5 h-5 text-[#1B42CB]" />
               </div>
-              <h4 className="text-lg font-semibold text-[#EEECF6]">
+              <h4 className={`text-lg font-semibold ${themeClasses.text}`}>
                 Average per Booking
               </h4>
             </div>
-            <p className="text-3xl font-bold text-[#EEECF6]">
+            <p className={`text-3xl font-bold ${themeClasses.text}`}>
               ₹{stats?.averageSpentPerBooking || 0}
             </p>
-            <p className="text-sm text-[#EEECF6]/40 mt-2">
+            <p className={themeClasses.textMuted}>
               Per booking average
             </p>
           </div>
 
-          <div className="backdrop-blur-xl bg-linear-to-br from-[#FF2F6C]/10 to-transparent border border-[#FF2F6C]/20 rounded-2xl p-6">
+          <div className={`backdrop-blur-xl bg-gradient-to-br from-[#FF2F6C]/10 to-transparent border ${themeClasses.border} rounded-2xl p-6`}>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-10 h-10 rounded-lg bg-[#FF2F6C]/20 flex items-center justify-center">
-                <span className="text-lg">⏱️</span>
+                <Icons.Activity className="w-5 h-5 text-[#FF2F6C]" />
               </div>
-              <h4 className="text-lg font-semibold text-[#EEECF6]">
+              <h4 className={`text-lg font-semibold ${themeClasses.text}`}>
                 Active Bookings
               </h4>
             </div>
-            <p className="text-3xl font-bold text-[#EEECF6]">
+            <p className={`text-3xl font-bold ${themeClasses.text}`}>
               {stats?.activeBookings || 0}
             </p>
-            <p className="text-sm text-[#EEECF6]/40 mt-2">Currently active</p>
+            <p className={themeClasses.textMuted}>Currently active</p>
           </div>
 
-          <div className="backdrop-blur-xl bg-linear-to-br from-green-500/10 to-transparent border border-green-500/20 rounded-2xl p-6">
+          <div className={`backdrop-blur-xl bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20 rounded-2xl p-6`}>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                <span className="text-lg">✓</span>
+                <Icons.Percent className="w-5 h-5 text-green-500" />
               </div>
-              <h4 className="text-lg font-semibold text-[#EEECF6]">
+              <h4 className={`text-lg font-semibold ${themeClasses.text}`}>
                 Completion Rate
               </h4>
             </div>
-            <p className="text-3xl font-bold text-[#EEECF6]">
+            <p className={`text-3xl font-bold ${themeClasses.text}`}>
               {stats?.totalBookings
                 ? Math.round(
                     (stats.completedBookings / stats.totalBookings) * 100,
@@ -478,7 +540,7 @@ const DashboardPage: React.FC = () => {
                 : 0}
               %
             </p>
-            <p className="text-sm text-[#EEECF6]/40 mt-2">Of total bookings</p>
+            <p className={themeClasses.textMuted}>Of total bookings</p>
           </div>
         </div>
       </div>
