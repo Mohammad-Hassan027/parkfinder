@@ -4,6 +4,8 @@ import MapComponent from "./MapComponent";
 import * as Icons from "lucide-react";
 
 const HomePage: React.FC = () => {
+  const [isStarred, setIsStarred] = useState(false);
+const [favoriteMessage, setFavoriteMessage] = useState("");
   const [activeSection, setActiveSection] = useState(0);
   const [parkingSlots, setParkingSlots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -303,10 +305,34 @@ const HomePage: React.FC = () => {
                         </div>
                       </div>
                       <button
-                        className={`p-3 hover:${themeClasses.overlay} rounded-xl transition-colors`}
+                         onClick={() => {
+                              if (!isStarred) {
+                                setFavoriteMessage("Saved to favorites !");
+                              } else {
+                                setFavoriteMessage("Removed from favorites");
+                              }
+
+                              setIsStarred(!isStarred);
+
+                              setTimeout(() => {
+                                setFavoriteMessage("");
+                              }, 2000);
+                            }}
+                          className={`relative p-3 hover:${themeClasses.overlay} rounded-xl transition-colors`}
                       >
+
+                      {favoriteMessage && (
+                            <div className="absolute -top-1 right-0 text-[10px] text-yellow-500 whitespace-nowrap">
+                              {favoriteMessage}
+                            </div>
+                          )}
+
                         <Icons.Star
-                          className={`w-5 h-5 ${themeClasses.textSecondary}`}
+                           className={`w-5 h-5 ${
+                           isStarred
+                            ? "text-yellow-400 fill-yellow-400"
+                              : themeClasses.textSecondary
+                             }`}
                         />
                       </button>
                     </div>
