@@ -334,7 +334,8 @@ const DashboardPage: React.FC = () => {
 
             <button
               onClick={() => window.location.href = "/signup"}
-              className="px-6 py-3 border border-[#1B42CB]/30 rounded-xl font-semibold hover:bg-[#1B42CB]/10 transition-all"
+              className={`px-6 py-3 border ${themeClasses.border}
+              rounded-xl font-semibold ${themeClasses.text}`}
             >
               Sign Up
             </button>
