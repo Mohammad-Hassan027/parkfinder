@@ -73,8 +73,26 @@ interface DashboardStats {
   }[];
 }
 
+interface ActiveBooking {
+  bookingId: string;
+  bookingDate: string;
+  duration: number;
+  totalPrice: number;
+  expectedEnd: string;
+  parking: {
+    id: string;
+    name: string;
+    location: string;
+    floor: string;
+    slotNumber: string;
+    isCovered: boolean;
+    securityLevel: string;
+  };
+}
+
 const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activeBooking, setActiveBooking] = useState<ActiveBooking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -97,7 +115,22 @@ const DashboardPage: React.FC = () => {
 
     setIsAuthenticated(true);
     fetchDashboardData();
+    fetchActiveBooking();
   }, [timeframe, token]);
+
+  const fetchActiveBooking = async () => {
+    try {
+      const res = await fetch(`${API}/api/dashboard/active-booking`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveBooking(data.data);
+      }
+    } catch {
+      // Non-critical — widget simply won't show if this fails
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -420,6 +453,137 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
         </header>
+
+        {/* Parked Vehicle Location Reminder */}
+        {activeBooking && (
+          <div className="mb-8">
+            <div className={`relative overflow-hidden backdrop-blur-xl border rounded-2xl p-6 shadow-xl
+              ${theme === 'light'
+                ? 'bg-green-50 border-green-200 shadow-green-100'
+                : 'bg-green-500/10 border-green-500/30 shadow-green-500/10'
+              }`}>
+
+              {/* Pulse indicator — shows this is live/active */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span className={`text-sm font-semibold ${theme === 'light' ? 'text-green-700' : 'text-green-400'}`}>
+                  Active Parking
+                </span>
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <Icons.MapPin className="w-6 h-6 text-green-500" />
+                </div>
+                <div>
+                  <h2 className={`text-xl font-bold ${themeClasses.text}`}>
+                    Your Vehicle is Parked Here
+                  </h2>
+                  <p className={`text-sm ${themeClasses.textSecondary}`}>
+                    Quick location reminder for your active booking
+                  </p>
+                </div>
+              </div>
+
+              {/* Location Details Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                {/* Parking Name */}
+                <div className={`rounded-xl p-4 ${theme === 'light' ? 'bg-white border border-green-200' : 'bg-green-500/10 border border-green-500/20'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icons.Building2 className="w-4 h-4 text-green-500" />
+                    <span className={`text-xs font-medium uppercase tracking-wide ${themeClasses.textMuted}`}>
+                      Facility
+                    </span>
+                  </div>
+                  <p className={`font-bold ${themeClasses.text} text-sm leading-tight`}>
+                    {activeBooking.parking.name}
+                  </p>
+                </div>
+
+                {/* Floor */}
+                <div className={`rounded-xl p-4 ${theme === 'light' ? 'bg-white border border-green-200' : 'bg-green-500/10 border border-green-500/20'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icons.Layers className="w-4 h-4 text-green-500" />
+                    <span className={`text-xs font-medium uppercase tracking-wide ${themeClasses.textMuted}`}>
+                      Floor
+                    </span>
+                  </div>
+                  <p className={`font-bold ${themeClasses.text} text-sm`}>
+                    {activeBooking.parking.floor}
+                  </p>
+                </div>
+
+                {/* Slot Number */}
+                <div className={`rounded-xl p-4 ${theme === 'light' ? 'bg-white border border-green-200' : 'bg-green-500/10 border border-green-500/20'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icons.Hash className="w-4 h-4 text-green-500" />
+                    <span className={`text-xs font-medium uppercase tracking-wide ${themeClasses.textMuted}`}>
+                      Slot No.
+                    </span>
+                  </div>
+                  <p className={`font-bold text-green-500 text-lg`}>
+                    {activeBooking.parking.slotNumber}
+                  </p>
+                </div>
+
+                {/* Expected End Time */}
+                <div className={`rounded-xl p-4 ${theme === 'light' ? 'bg-white border border-green-200' : 'bg-green-500/10 border border-green-500/20'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icons.Clock className="w-4 h-4 text-green-500" />
+                    <span className={`text-xs font-medium uppercase tracking-wide ${themeClasses.textMuted}`}>
+                      Until
+                    </span>
+                  </div>
+                  <p className={`font-bold ${themeClasses.text} text-sm`}>
+                    {new Date(activeBooking.expectedEnd).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Location address + badges */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className={`flex items-center gap-2 text-sm ${themeClasses.textSecondary}`}>
+                  <Icons.Navigation className="w-4 h-4" />
+                  <span>{activeBooking.parking.location}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {activeBooking.parking.isCovered && (
+                    <span className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium
+                      ${theme === 'light' ? 'bg-blue-100 text-blue-700' : 'bg-blue-500/20 text-blue-300'}`}>
+                      <Icons.Umbrella className="w-3 h-3" />
+                      Covered
+                    </span>
+                  )}
+                  <span className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium capitalize
+                    ${activeBooking.parking.securityLevel === 'high'
+                      ? (theme === 'light' ? 'bg-green-100 text-green-700' : 'bg-green-500/20 text-green-300')
+                      : activeBooking.parking.securityLevel === 'medium'
+                      ? (theme === 'light' ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-500/20 text-yellow-300')
+                      : (theme === 'light' ? 'bg-red-100 text-red-700' : 'bg-red-500/20 text-red-300')
+                    }`}>
+                    <Icons.Shield className="w-3 h-3" />
+                    {activeBooking.parking.securityLevel} security
+                  </span>
+                  <a
+                    href="/booked-slots"
+                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium
+                      bg-gradient-to-r from-[#1B42CB] to-[#1B42CB]/80 text-white hover:opacity-90 transition-opacity`}
+                  >
+                    <Icons.ExternalLink className="w-3 h-3" />
+                    View Booking
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
