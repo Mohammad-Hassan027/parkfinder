@@ -8,6 +8,7 @@ import adminSlotsRouter from "./routes/slotManage.js";
 import userManage from "./routes/userManage.js";
 import parkingLogRoute from "./routes/parkingLogRoute.js";
 import dashboardRoute from "./routes/dashboardRoute.js";
+import predictionRoute from "./routes/predictionRoute.js";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -61,6 +62,9 @@ app.use("/api", parkingLogRoute);
 
 // use dashboard.js
 app.use("/api/dashboard", dashboardRoute);
+
+// use predictions — availability forecast based on historical occupancy
+app.use("/api/predictions", predictionRoute);
 
 // Root Route
 app.get("/", (req, res) => {
