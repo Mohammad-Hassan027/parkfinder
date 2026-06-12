@@ -78,6 +78,7 @@ interface ParkingSlot {
     managerName?: string;
   };
   images?: string[];
+  supportedVehicles?: string[];
 }
 
 interface ApiResponse {
@@ -97,7 +98,10 @@ const mockCoordinates = [
 ];
 
 // Image Carousel Component
-const ImageCarousel: React.FC<{ images: string[]; name: string }> = ({ images, name }) => {
+const ImageCarousel: React.FC<{ images: string[]; name: string }> = ({
+  images,
+  name,
+}) => {
   const [current, setCurrent] = React.useState(0);
   const [loaded, setLoaded] = React.useState(false);
 
@@ -162,7 +166,11 @@ const ImageCarousel: React.FC<{ images: string[]; name: string }> = ({ images, n
             {images.map((_, i) => (
               <button
                 key={i}
-                onClick={(e) => { e.stopPropagation(); setLoaded(false); setCurrent(i); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLoaded(false);
+                  setCurrent(i);
+                }}
                 className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${i === current ? "bg-white w-3" : "bg-white/50"}`}
               />
             ))}
@@ -189,6 +197,8 @@ const ParkingSlotPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("");
+  const [vehicleFilter, setVehicleFilter] = useState<string>("All");
+  const vehicleTypes = ["All", "Car", "Bike", "SUV", "EV"];
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [selectedMapSlot, setSelectedMapSlot] = useState<ParkingSlot | null>(
     null,
@@ -242,7 +252,9 @@ const ParkingSlotPage: React.FC = () => {
   const { token, user } = useAuth();
 
   // Prediction panel state
-  const [predictionSlot, setPredictionSlot] = useState<ParkingSlot | null>(null);
+  const [predictionSlot, setPredictionSlot] = useState<ParkingSlot | null>(
+    null,
+  );
 
   // Detect system theme
   const { theme } = useTheme();
@@ -570,6 +582,17 @@ const ParkingSlotPage: React.FC = () => {
       );
     }
 
+    // NEW: Add the Vehicle Type Filter logic
+    if (vehicleFilter && vehicleFilter !== "All") {
+      filtered = filtered.filter((slot) => {
+        // Fallback: If supportedVehicles isn't in DB yet, assume it supports cars/bikes
+        if (!slot.supportedVehicles || slot.supportedVehicles.length === 0) {
+          return vehicleFilter !== "EV";
+        }
+        return slot.supportedVehicles.includes(vehicleFilter);
+      });
+    }
+
     if (sortBy) {
       switch (sortBy) {
         case "price":
@@ -598,7 +621,14 @@ const ParkingSlotPage: React.FC = () => {
     }
 
     return filtered;
-  }, [parkingSlots, searchTerm, statusFilter, sortBy, userLocation]);
+  }, [
+    parkingSlots,
+    searchTerm,
+    statusFilter,
+    sortBy,
+    userLocation,
+    vehicleFilter,
+  ]);
 
   // Render Map View
   const renderMapView = () => {
@@ -997,6 +1027,26 @@ const ParkingSlotPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* NEW: Supported Vehicles Badges */}
+                {slot.supportedVehicles &&
+                  slot.supportedVehicles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {slot.supportedVehicles.map((v) => (
+                        <span
+                          key={v}
+                          className={`text-xs px-3 py-1 rounded-full ${themeClasses.cardBgSecondary} border ${themeClasses.border} ${themeClasses.text} font-medium flex items-center gap-1`}
+                        >
+                          {v === "Car" && <Icons.Car className="w-3 h-3" />}
+                          {v === "Bike" && <Icons.Bike className="w-3 h-3" />}
+                          {v === "EV" && (
+                            <Icons.Zap className="w-3 h-3 text-yellow-500" />
+                          )}
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3 mb-6">
                   <div
@@ -1285,7 +1335,9 @@ const ParkingSlotPage: React.FC = () => {
                     <div
                       className={`text-3xl font-bold ${themeClasses.text} mb-1`}
                     >
-                      ₹{Math.min(...parkingSlots.map((s) => s.pricePerHour))}
+                      {parkingSlots.length > 0
+  ? `₹${Math.min(...parkingSlots.map((s: ParkingSlot) => s.pricePerHour))}`
+  : "N/A"}
                     </div>
                     <div className={`text-sm ${themeClasses.textSecondary}`}>
                       Starting Price
@@ -1313,6 +1365,28 @@ const ParkingSlotPage: React.FC = () => {
           <div
             className={`mb-8 backdrop-blur-xl ${themeClasses.cardBg} ${themeClasses.cardBorder} border rounded-2xl p-6 shadow-xl`}
           >
+            {/* NEW: Vehicle Type Pills */}
+            <div className="flex gap-3 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+              {vehicleTypes.map((type) => {
+                const isActive = vehicleFilter === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setVehicleFilter(type)}
+                    className={`px-5 py-2 rounded-full font-medium transition-all duration-300 whitespace-nowrap border text-sm flex items-center gap-2 ${
+                      isActive
+                        ? "bg-gradient-to-r from-[#1B42CB] to-[#FF2F6C] text-white border-transparent shadow-lg shadow-[#1B42CB]/20"
+                        : `${themeClasses.cardBgSecondary} ${themeClasses.textSecondary} ${themeClasses.border} ${themeClasses.hover}`
+                    }`}
+                  >
+                    {type === "Car" && <Icons.Car className="w-4 h-4" />}
+                    {type === "Bike" && <Icons.Bike className="w-4 h-4" />}
+                    {type === "EV" && <Icons.Zap className="w-4 h-4" />}
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
@@ -1494,7 +1568,8 @@ const ParkingSlotPage: React.FC = () => {
       )}
 
       {/* Booking Modal */}
-      <div        id="booking-modal"
+      <div
+        id="booking-modal"
         className="hidden fixed inset-0 bg-black/80 backdrop-blur-sm items-center justify-center z-50 p-4"
       >
         <div
@@ -1697,6 +1772,3 @@ const ParkingSlotPage: React.FC = () => {
 };
 
 export default ParkingSlotPage; 
-
-
-
