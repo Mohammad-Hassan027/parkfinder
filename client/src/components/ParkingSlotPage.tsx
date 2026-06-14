@@ -1,18 +1,26 @@
-import React, { useEffect, useState } from "react";
+import * as React from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Icons from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import PredictionPanel from "./PredictionPanel";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+  useMap,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import * as L from "leaflet";
 import { useRouteNavigation } from "../hooks/useRouteNavigation";
 import { getUserLocation } from "../utils/geolocation";
 import { THEME_CONFIG } from "../config/ThemeConfig";
 
 // Fix for default Leaflet icons
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as L.Icon.Default & { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
@@ -49,7 +57,7 @@ interface FitBoundsProps {
   coords: [number, number][];
 }
 
-const FitBounds: React.FC<FitBoundsProps> = ({ coords }) => {
+const FitBounds: React.FC<FitBoundsProps> = ({ coords }: FitBoundsProps) => {
   const map = useMap();
   useEffect(() => {
     if (coords && coords.length > 1) {
@@ -108,9 +116,12 @@ const mockCoordinates = [
 const ImageCarousel: React.FC<{ images: string[]; name: string }> = ({
   images,
   name,
+}: {
+  images: string[];
+  name: string;
 }) => {
-  const [current, setCurrent] = React.useState(0);
-  const [loaded, setLoaded] = React.useState(false);
+  const [current, setCurrent] = React.useState<number>(0);
+  const [loaded, setLoaded] = React.useState<boolean>(false);
 
   if (!images || images.length === 0) {
     return (
@@ -128,12 +139,12 @@ const ImageCarousel: React.FC<{ images: string[]; name: string }> = ({
   const prev = (e: React.MouseEvent) => {
     e.stopPropagation();
     setLoaded(false);
-    setCurrent((c) => (c - 1 + images.length) % images.length);
+    setCurrent((c: number) => (c - 1 + images.length) % images.length);
   };
   const next = (e: React.MouseEvent) => {
     e.stopPropagation();
     setLoaded(false);
-    setCurrent((c) => (c + 1) % images.length);
+    setCurrent((c: number) => (c + 1) % images.length);
   };
 
   return (
@@ -170,10 +181,10 @@ const ImageCarousel: React.FC<{ images: string[]; name: string }> = ({
           </button>
           {/* Dot indicators */}
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {images.map((_, i) => (
+            {images.map((_: string, i: number) => (
               <button
                 key={i}
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   setLoaded(false);
                   setCurrent(i);
@@ -206,6 +217,8 @@ const ParkingSlotPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>("");
   /** When true, only EV-charging-enabled slots are fetched from the API */
   const [evFilter, setEvFilter] = useState<boolean>(false);
+  const vehicleTypes = ["All", "Car", "Bike", "EV"];
+  const [vehicleFilter, setVehicleFilter] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [selectedMapSlot, setSelectedMapSlot] = useState<ParkingSlot | null>(
     null,
@@ -217,7 +230,10 @@ const ParkingSlotPage: React.FC = () => {
   const [duration, setDuration] = useState(1);
 
   // State for tracking favorited location IDs
-  // const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  const [vehicleFilter, setVehicleFilter] = useState<string>("All");
+  const vehicleTypes = ["All", "Car", "Bike", "SUV", "EV"];
 
   // Navigation & routing hook usage
   const {
@@ -316,22 +332,22 @@ const ParkingSlotPage: React.FC = () => {
   };
 
   // Fetch user's favorite locations
-  // const fetchFavorites = async () => {
-  //   if (!token) return;
-  //   try {
-  //     const res = await fetch(`/api/favorites`, {
-  //       headers: { Authorization: `Bearer ${token}` },
-  //     });
-  //     const data = await res.json();
-  //     if (data.success) {
-  //       // Extract just the IDs so it's easy to check `favorites.includes(id)`
-  //       const favoriteIds = data.data.map((fav: any) => fav._id);
-  //       setFavorites(favoriteIds);
-  //     }
-  //   } catch (err) {
-  //     console.error("Failed to fetch favorites:", err);
-  //   }
-  // };
+  const fetchFavorites = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/favorites`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Extract just the IDs so it's easy to check `favorites.includes(id)`
+        const favoriteIds = data.data.map((fav: any) => fav._id);
+        setFavorites(favoriteIds);
+      }
+    } catch (err) {
+      console.error("Failed to fetch favorites:", err);
+    }
+  };
 
   useEffect(() => {
     // Get user location
@@ -356,11 +372,11 @@ const ParkingSlotPage: React.FC = () => {
   }, [evFilter]);
 
   // Fetch favorites separately to ensure it runs when token is available
-  // useEffect(() => {
-  //   if (token) {
-  //     fetchFavorites();
-  //   }
-  // }, [token]);
+  useEffect(() => {
+    if (token) {
+      fetchFavorites();
+    }
+  }, [token]);
 
   // Handle Toggle Favorite Button Click
   // const handleToggleFavorite = async (
@@ -565,10 +581,28 @@ const ParkingSlotPage: React.FC = () => {
       );
     }
 
+    if (vehicleFilter && vehicleFilter !== "All") {
+      filtered = filtered.filter((slot) => {
+        if (!slot.supportedVehicles || slot.supportedVehicles.length === 0) {
+          return vehicleFilter !== "EV";
+        }
+        return slot.supportedVehicles.includes(vehicleFilter);
+      });
+    }
+
     // Client-side guard: if evFilter is on but server somehow returned non-EV slots,
     // ensure we only show EV slots in the list
     if (evFilter) {
       filtered = filtered.filter((slot) => slot.isEVChargingStation === true);
+    }
+
+    if (vehicleFilter && vehicleFilter !== "All") {
+      filtered = filtered.filter((slot) => {
+        if (vehicleFilter === "EV") {
+          return slot.isEVChargingStation || (slot.supportedVehicles && slot.supportedVehicles.includes("EV"));
+        }
+        return slot.supportedVehicles && slot.supportedVehicles.includes(vehicleFilter);
+      });
     }
 
     if (sortBy) {
@@ -599,7 +633,7 @@ const ParkingSlotPage: React.FC = () => {
     }
 
     return filtered;
-  }, [parkingSlots, searchTerm, statusFilter, sortBy, userLocation, evFilter]);
+  }, [parkingSlots, searchTerm, statusFilter, sortBy, userLocation, evFilter, vehicleFilter]);
 
   // Render Map View
   const renderMapView = () => {
@@ -693,20 +727,23 @@ const ParkingSlotPage: React.FC = () => {
               )}
 
               {/* Parking slots markers */}
-              {filteredAndSortedSlots.map((slot) => {
+              {filteredAndSortedSlots.map((slot: ParkingSlot) => {
                 if (!slot.coordinates) return null;
                 const status = slot.status || "unknown";
 
                 return (
                   <Marker
-                    key={slot._id}
-                    position={[slot.coordinates.lat, slot.coordinates.lng]}
-                    icon={createParkingIcon(status)}
-                    eventHandlers={{
-                      click: () => {
-                        setSelectedMapSlot(slot);
-                      },
-                    }}
+                    {...{
+                      key: slot._id,
+                      position: [slot.coordinates.lat, slot.coordinates.lng],
+                      icon: createParkingIcon(status),
+                      eventHandlers: {
+                        click: () => {
+                          setSelectedMapSlot(slot);
+                        },
+                      }
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any}
                   >
                     <Popup>
                       <div className="p-2 min-w-[200px] text-gray-800">
@@ -747,10 +784,13 @@ const ParkingSlotPage: React.FC = () => {
               {routeCoords.length > 0 && (
                 <>
                   <Polyline
-                    positions={routeCoords}
-                    pathOptions={{ color: "#1B42CB", weight: 5 }}
-                    color="#1B42CB"
-                    weight={5}
+                    {...{
+                      positions: routeCoords,
+                      pathOptions: { color: "#1B42CB", weight: 5 },
+                      color: "#1B42CB",
+                      weight: 5
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any}
                   />
                   <FitBounds coords={routeCoords} />
                 </>
@@ -804,12 +844,36 @@ const ParkingSlotPage: React.FC = () => {
                   {selectedMapSlot.location}
                 </p>
               </div>
-              <button
-                onClick={() => setSelectedMapSlot(null)}
-                className={`w-8 h-8 rounded-lg ${themeClasses.cardBgSecondary} border ${themeClasses.border} flex items-center justify-center ${themeClasses.text} ${themeClasses.hover} transition-colors`}
-              >
-                <Icons.X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => handleToggleFavorite(e, selectedMapSlot._id)}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                    favorites.includes(selectedMapSlot._id)
+                      ? "text-[#FF2F6C]"
+                      : `${themeClasses.textMuted} hover:text-[#FF2F6C]`
+                  }`}
+                  title={
+                    favorites.includes(selectedMapSlot._id)
+                      ? "Remove from favorites"
+                      : "Save to favorites"
+                  }
+                >
+                  <Icons.Heart
+                    className="w-5 h-5"
+                    fill={
+                      favorites.includes(selectedMapSlot._id)
+                        ? "currentColor"
+                        : "none"
+                    }
+                  />
+                </button>
+                <button
+                  onClick={() => setSelectedMapSlot(null)}
+                  className={`w-8 h-8 rounded-lg ${themeClasses.cardBgSecondary} border ${themeClasses.border} flex items-center justify-center ${themeClasses.text} ${themeClasses.hover} transition-colors`}
+                >
+                  <Icons.X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -922,7 +986,7 @@ const ParkingSlotPage: React.FC = () => {
   const renderListView = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAndSortedSlots.map((slot) => {
+        {filteredAndSortedSlots.map((slot: ParkingSlot) => {
           const availabilityPercentage = getAvailabilityPercentage(
             slot.availableSlots,
             slot.capacity,
@@ -998,7 +1062,27 @@ const ParkingSlotPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex flex-col items-end gap-2">
+                    <button
+                      onClick={(e) => handleToggleFavorite(e, slot._id)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                        favorites.includes(slot._id)
+                          ? "text-[#FF2F6C]"
+                          : `${themeClasses.textMuted} hover:text-[#FF2F6C]`
+                      }`}
+                      title={
+                        favorites.includes(slot._id)
+                          ? "Remove from favorites"
+                          : "Save to favorites"
+                      }
+                    >
+                      <Icons.Heart
+                        className="w-5 h-5"
+                        fill={
+                          favorites.includes(slot._id) ? "currentColor" : "none"
+                        }
+                      />
+                    </button>
                     <div
                       className={`text-2xl font-bold bg-gradient-to-r ${themeClasses.gradient.accent} bg-clip-text text-transparent`}
                     >
@@ -1030,7 +1114,7 @@ const ParkingSlotPage: React.FC = () => {
                 {slot.supportedVehicles &&
                   slot.supportedVehicles.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-6">
-                      {slot.supportedVehicles.map((v) => (
+                      {slot.supportedVehicles.map((v: string) => (
                         <span
                           key={v}
                           className={`text-xs px-3 py-1 rounded-full ${themeClasses.cardBgSecondary} border ${themeClasses.border} ${themeClasses.text} font-medium flex items-center gap-1`}
@@ -1588,7 +1672,7 @@ const ParkingSlotPage: React.FC = () => {
                   >
                     {
                       filteredAndSortedSlots.filter(
-                        (s) => s.status === "available",
+                        (s: ParkingSlot) => s.status === "available",
                       ).length
                     }
                   </div>
@@ -1603,7 +1687,7 @@ const ParkingSlotPage: React.FC = () => {
                     {filteredAndSortedSlots.length > 0
                       ? Math.round(
                           (filteredAndSortedSlots.reduce(
-                            (sum, s) => sum + s.availableSlots / s.capacity,
+                            (sum: number, s: ParkingSlot) => sum + s.availableSlots / s.capacity,
                             0,
                           ) /
                             filteredAndSortedSlots.length) *
@@ -1624,7 +1708,7 @@ const ParkingSlotPage: React.FC = () => {
                     {filteredAndSortedSlots.length > 0
                       ? Math.round(
                           filteredAndSortedSlots.reduce(
-                            (sum, s) => sum + s.pricePerHour,
+                            (sum: number, s: ParkingSlot) => sum + s.pricePerHour,
                             0,
                           ) / filteredAndSortedSlots.length,
                         )
