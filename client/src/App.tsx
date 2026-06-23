@@ -15,6 +15,7 @@ import BackToTop from "./components/BackToTop";
 // Humare naye pages jo humne create kiye hain
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
+import FavoritesPage from "./pages/FavoritesPage";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/parkingslots" element={<ParkingSlotPage />} />
         <Route path="/bookings" element={<BookedSlotsPage />} />
+        <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
