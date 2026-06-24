@@ -15,6 +15,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import cors from "cors";
 import dotenv from "dotenv";
 import floorVisualizationRoute from "./routes/floorVisualizationRoute.js";
+import reviewRoute from "./routes/reviewRoute.js";
 import { connectRedis } from "./utils/cache.js";
 
 dotenv.config({ path: ".env" });
@@ -77,6 +78,9 @@ app.use("/api", parkingLogRoute);
 // use favorites route
 app.use("/api/favorites", favoritesRoute);
 
+// use reviews route
+app.use("/api/reviews", reviewRoute);
+
 // use dashboard.js
 app.use("/api/dashboard", dashboardRoute);
 
@@ -84,8 +88,8 @@ app.use("/api/dashboard", dashboardRoute);
 app.use("/api/predictions", predictionRoute);
 
 // Setup Swagger Docs
-const swaggerDocs = swaggerJsDoc(swaggerOptions);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+// const swaggerDocs = swaggerJsDoc(swaggerOptions);
+// app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Root Route
 app.get("/", (req, res) => {
